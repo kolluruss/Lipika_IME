@@ -8,6 +8,7 @@
  */
 
 #import "DJLipikaUserSettings.h"
+#import "DJLogger.h"
 #import <InputMethodKit/InputMethodKit.h>
 
 @implementation DJLipikaUserSettings
@@ -76,7 +77,12 @@ static NSDictionary *candidateStringAttributeCache = nil;
 
 +(void)setCandidateStringAttributes:(NSDictionary *)attributes {
     candidateStringAttributeCache = attributes;
-    NSData *outputData = [NSArchiver archivedDataWithRootObject:attributes];
+    NSError *error;
+    NSData *outputData = [NSKeyedArchiver archivedDataWithRootObject:attributes requiringSecureCoding:YES error:&error];
+    if (error != nil) {
+        logWarning(@"Failed to archive candidate string attributes: %@", [error localizedDescription]);
+        return;
+    }
     [[NSUserDefaults standardUserDefaults] setObject:outputData forKey:@"CandidatesStringAttributes"];
 }
 
@@ -84,7 +90,13 @@ static NSDictionary *candidateStringAttributeCache = nil;
     if (candidateStringAttributeCache) return candidateStringAttributeCache;
     NSData *data = [[NSUserDefaults standardUserDefaults] objectForKey:@"CandidatesStringAttributes"];
     if (data) {
-        candidateStringAttributeCache = [NSUnarchiver unarchiveObjectWithData:data];
+        NSSet *allowedClasses = [NSSet setWithArray:@[[NSDictionary class], [NSString class], [NSNumber class], [NSFont class], [NSColor class], [NSParagraphStyle class], [NSMutableParagraphStyle class], [NSShadow class]]];
+        NSError *error;
+        candidateStringAttributeCache = [NSKeyedUnarchiver unarchivedObjectOfClasses:allowedClasses fromData:data error:&error];
+        if (error != nil) {
+            logWarning(@"Failed to unarchive candidate string attributes: %@", [error localizedDescription]);
+            candidateStringAttributeCache = nil;
+        }
     }
     return candidateStringAttributeCache;
 }
